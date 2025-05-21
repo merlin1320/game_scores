@@ -24,21 +24,36 @@ const corsOptions = {
 getConnection().then((connection) => {
   app.use(cors(corsOptions));
   app.use(express.json());
-
-  app.get("/", (req: Request, res: Response) => {
-    res.send("Hello, Express with TypeScript!");
-  });
-
   app.options("/users", (req: Request, res: Response) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE");
     res.header("Access-Control-Allow-Headers", "*");
     res.send();
   });
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello, Express with TypeScript!");
-});
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  app.get("/", (req: Request, res: Response) => {
+    res.send("Hello, Express with TypeScript!");
+  });
+
+  app.get("/scores", (req: Request, res: Response) => {
+    connection
+      .query(
+        "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id INNER JOIN UserTypes ON Users.user_type_id=UserTypes.id ORDER BY score DESC;"
+      )
+      .then(([results]) => {
+        console.log(results)
+        res.status(200).json(results);
+        return;
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).json({ error: "Database query failed" });
+      });
+  });
+
+  app.get("/scores", ())
+
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
 });
