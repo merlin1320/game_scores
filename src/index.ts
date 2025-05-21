@@ -98,6 +98,32 @@ getConnection().then((connection) => {
       });
   });
 
+  //get all scores by game
+  // app.get("/scores", (req: Request, res: Response) => {
+  //   const {game} = req.params.body
+  //   if (
+  //     !req.params.id ||
+  //     req.params.id.length === 0 ||
+  //     isNaN(parseInt(req.params.id))
+  //   ) {
+  //     res.status(400).json({ error: "Invalid ID" });
+  //     return;
+  //   }
+  //   connection
+  //     .query(
+  //       "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id ORDER BY score DESC"
+  //     )
+  //     .then(([results]) => {
+  //       res.status(200).json(results);
+  //     })
+  //     .catch((err) => {
+  //       console.error(err);
+  //       res.status(500).json({ error: "Database query failed" });
+  //     });
+  // });
+
+
+
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });
