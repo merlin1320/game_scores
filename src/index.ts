@@ -1,6 +1,6 @@
 import cors from "cors";
 import express, { Request, Response } from "express";
-import mysql from "mysql2/promise";
+import mysql, { RowDataPacket } from "mysql2/promise";
 
 const app = express();
 const port = 3030;
@@ -122,7 +122,29 @@ getConnection().then((connection) => {
   //     });
   // });
 
-
+  app.post("/scores", (req: Request, res: Response) => {
+    const { game_name, user_id, score } = req.body;
+    if (!game_name || !user_id || !score) {
+      res.status(400).json({
+        error: "Missing parameters: Game Name, User ID, Score required",
+      });
+      return;
+    }
+    connection
+      .query("SELECT * FROM Users WHERE ID = ?;", [user_id])
+      .then(([result]) => {
+        if ((result as RowDataPacket[]).length != 1) {
+          res.status(400).json({ error: "No such User ID" });
+          return;
+        }
+        return connection.execute(
+          "INSERT INTO Scores (user_id, game_name, score) VALUES (?,?,?);",
+          [user_id, game_name, score]
+        );
+      }).then(() => {
+        res.status(201).json({message: 'Score added'})
+      })
+  });
 
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
