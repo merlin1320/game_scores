@@ -53,12 +53,10 @@ getConnection().then((connection) => {
   });
 
   //all scores for user by id
-  app.get("/scores/:id", (req: Request, res: Response) => {
-    if (
-      !req.params.id ||
-      req.params.id.length === 0 ||
-      isNaN(parseInt(req.params.id))
-    ) {
+  app.get("/scores", (req: Request, res: Response) => {
+    const validID =
+      req.body.id && req.body.id.length > 0 && !isNaN(parseInt(req.body.id));
+    if (!validID) {
       res.status(400).json({ error: "Invalid ID" });
       return;
     }
@@ -95,11 +93,12 @@ getConnection().then((connection) => {
   });
 
   // get all scores by game_name
-  app.get("/scores/game_name", (req: Request, res: Response) => {
-    const validGameName = req.params.game_name && req.params.game_name.length > 0;
+  app.get("/scores/:game_name", (req: Request, res: Response) => {
+    const validGameName =
+      req.params.game_name && req.params.game_name.length > 0;
     if (!validGameName) {
       res.status(400).json({ error: "Invalid Game Name" });
-      return
+      return;
     }
     connection
       .query("Select * from Scores WHERE game_name = ? ORDER BY score DESC", [
