@@ -37,73 +37,48 @@ getConnection().then((connection) => {
     res.send();
   });
 
-  //all scores
-  app.get("/scores", (req: Request, res: Response) => {
-    connection
-      .query(
-        "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id INNER JOIN UserTypes ON Users.user_type_id=UserTypes.id ORDER BY score DESC;"
-      )
-      .then(([results]) => {
-        res.status(200).json(results);
-      })
-      .catch((err) => {
-        console.error(err);
-        res.status(500).json({ error: "Database query failed" });
-      });
-  });
-
   //all scores for user by id
   app.get("/scores", (req: Request, res: Response) => {
-    const validID =
-      req.body.id && req.body.id.length > 0 && !isNaN(parseInt(req.body.id));
-    if (!validID) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
-    }
-    connection
-      .query("Select * from Scores WHERE user_id = ? ORDER BY score DESC;", [
-        req.params.id,
-      ])
-      .then(([results]) => {
-        res.status(200).json(results);
-      })
-      .catch((err) => {
-        console.error(err);
-        res.status(500).json({ error: "Database query failed" });
-      });
-  });
+    const paramFilter = req.query.filter;
+    const paramQuery = (req.query.s ?? "") as string;
 
-  //get all scores by username
-  app.get("/scores/:username", (req: Request, res: Response) => {
-    const validUsername = req.params.username && req.params.username.length > 0;
-    if (!validUsername) {
-      res.status(400).json({ error: "Invalid Username" });
-    }
-    connection
-      .query(
-        "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id ORDER BY score DESC"
-      )
-      .then(([results]) => {
-        res.status(200).json(results);
-      })
-      .catch((err) => {
-        console.error(err);
-        res.status(500).json({ error: "Database query failed" });
-      });
-  });
+    let queryString = "";
 
-  // get all scores by game_name
-  app.get("/scores/:game_name", (req: Request, res: Response) => {
-    const validGameName =
-      req.params.game_name && req.params.game_name.length > 0;
-    if (!validGameName) {
-      res.status(400).json({ error: "Invalid Game Name" });
-      return;
+    switch (paramFilter) {
+      case "user_id":
+        const validID =
+          paramQuery && paramQuery.length > 0 && !isNaN(parseInt(paramQuery));
+        if (!validID) {
+          res.status(400).json({ error: "Invalid ID" });
+          return;
+        }
+        queryString =
+          "Select * from Scores WHERE user_id = ? ORDER BY score DESC;";
+        break;
+      case "username":
+        const validUsername = paramQuery && paramQuery.length > 0;
+        if (!validUsername) {
+          res.status(400).json({ error: "Invalid Username" });
+        }
+        queryString =
+          "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id WHERE username = ? ORDER BY score DESC;";
+        break;
+      case "game_name":
+        const validGameName = paramQuery && paramQuery.length > 0;
+        if (!validGameName) {
+          res.status(400).json({ error: "Invalid Game Name" });
+          return;
+        }
+        queryString =
+          "Select * from Scores WHERE game_name = ? ORDER BY score DESC;";
+        break;
+      default:
+        queryString =
+          "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id INNER JOIN UserTypes ON Users.user_type_id=UserTypes.id ORDER BY score DESC;";
+        break;
     }
     connection
-      .query("Select * from Scores WHERE game_name = ? ORDER BY score DESC", [
-        req.params.game_name,
-      ])
+      .query(queryString, [paramQuery])
       .then(([results]) => {
         res.status(200).json(results);
       })
