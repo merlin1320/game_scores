@@ -1,6 +1,7 @@
+import { error } from "console";
 import cors from "cors";
 import express, { Request, Response } from "express";
-import mysql, { RowDataPacket } from "mysql2/promise";
+import mysql, { QueryError, RowDataPacket } from "mysql2/promise";
 
 const app = express();
 const port = 3030;
@@ -38,8 +39,6 @@ getConnection().then((connection) => {
 
   //all scores
   app.get("/scores", (req: Request, res: Response) => {
-    console.log("Initial");
-
     connection
       .query(
         "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id INNER JOIN UserTypes ON Users.user_type_id=UserTypes.id ORDER BY score DESC;"
@@ -64,9 +63,9 @@ getConnection().then((connection) => {
       return;
     }
     connection
-      .query(
-        "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id ORDER BY score DESC"
-      )
+      .query("Select * from Scores WHERE user_id = ? ORDER BY score DESC;", [
+        req.params.id,
+      ])
       .then(([results]) => {
         res.status(200).json(results);
       })
@@ -75,15 +74,12 @@ getConnection().then((connection) => {
         res.status(500).json({ error: "Database query failed" });
       });
   });
+
   //get all scores by username
-  app.get("/scores/:id", (req: Request, res: Response) => {
-    if (
-      !req.params.id ||
-      req.params.id.length === 0 ||
-      isNaN(parseInt(req.params.id))
-    ) {
-      res.status(400).json({ error: "Invalid ID" });
-      return;
+  app.get("/scores/:username", (req: Request, res: Response) => {
+    const validUsername = req.params.username && req.params.username.length > 0;
+    if (!validUsername) {
+      res.status(400).json({ error: "Invalid Username" });
     }
     connection
       .query(
@@ -98,52 +94,84 @@ getConnection().then((connection) => {
       });
   });
 
-  //get all scores by game
-  // app.get("/scores", (req: Request, res: Response) => {
-  //   const {game} = req.params.body
-  //   if (
-  //     !req.params.id ||
-  //     req.params.id.length === 0 ||
-  //     isNaN(parseInt(req.params.id))
-  //   ) {
-  //     res.status(400).json({ error: "Invalid ID" });
-  //     return;
-  //   }
-  //   connection
-  //     .query(
-  //       "Select * from Scores INNER JOIN Users ON Scores.user_id=Users.id ORDER BY score DESC"
-  //     )
-  //     .then(([results]) => {
-  //       res.status(200).json(results);
-  //     })
-  //     .catch((err) => {
-  //       console.error(err);
-  //       res.status(500).json({ error: "Database query failed" });
-  //     });
-  // });
+  // get all scores by game_name
+  app.get("/scores/game_name", (req: Request, res: Response) => {
+    const validGameName = req.params.game_name && req.params.game_name.length > 0;
+    if (!validGameName) {
+      res.status(400).json({ error: "Invalid Game Name" });
+      return
+    }
+    connection
+      .query("Select * from Scores WHERE game_name = ? ORDER BY score DESC", [
+        req.params.game_name,
+      ])
+      .then(([results]) => {
+        res.status(200).json(results);
+      })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).json({ error: "Database query failed" });
+      });
+  });
 
+  //add score using user_id, game_name, and score
   app.post("/scores", (req: Request, res: Response) => {
     const { game_name, user_id, score } = req.body;
-    if (!game_name || !user_id || !score) {
+    const isUserIDValid =
+      user_id && user_id.length > 0 && !isNaN(parseInt(user_id));
+    const isGameNameValid = game_name && game_name.length > 0;
+    const isScoreValid = score && score.length > 0 && !isNaN(parseInt(score));
+
+    if (!isUserIDValid || !isGameNameValid || !isScoreValid) {
       res.status(400).json({
         error: "Missing parameters: Game Name, User ID, Score required",
       });
       return;
     }
     connection
-      .query("SELECT * FROM Users WHERE ID = ?;", [user_id])
-      .then(([result]) => {
-        if ((result as RowDataPacket[]).length != 1) {
-          res.status(400).json({ error: "No such User ID" });
+      .execute(
+        "INSERT INTO Scores (user_id, game_name, score) VALUES (?,?,?);",
+        [user_id, game_name, score]
+      )
+      .then(() => {
+        res.status(201).json({ message: "Score added" });
+      })
+      .catch((err: QueryError) => {
+        console.error(err);
+        if (err.code === "ER_DUP_ENTRY") {
+          res.status(409).json({ error: "Score already exists" });
           return;
         }
-        return connection.execute(
-          "INSERT INTO Scores (user_id, game_name, score) VALUES (?,?,?);",
-          [user_id, game_name, score]
-        );
-      }).then(() => {
-        res.status(201).json({message: 'Score added'})
+        res.status(500).json({ error: "Database query failed" });
+      });
+  });
+
+  //Update score using user_id, game_name, and score
+  app.patch("/scores", (req: Request, res: Response) => {
+    const { game_name, user_id, score } = req.body;
+    const isUserIDValid =
+      user_id && user_id.length > 0 && !isNaN(parseInt(user_id));
+    const isGameNameValid = game_name && game_name.length > 0;
+    const isScoreValid = score && score.length > 0 && !isNaN(parseInt(score));
+
+    if (!isUserIDValid || !isGameNameValid || !isScoreValid) {
+      res.status(400).json({
+        error: "Missing parameters: Game Name, User ID, Score required",
+      });
+      return;
+    }
+    connection
+      .execute(
+        "UPDATE Scores SET score = ? WHERE user_id = ? AND game_name = ?;",
+        [score, user_id, game_name]
+      )
+      .then(() => {
+        res.status(201).json({ message: "Score updated" });
       })
+      .catch((err) => {
+        console.error(err);
+        res.status(500).json({ error: "Database query failed" });
+      });
   });
 
   app.listen(port, () => {
